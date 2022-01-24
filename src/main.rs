@@ -32,6 +32,7 @@ fn main() {
     // Create image buffer
     let imgbuf = image::RgbaImage::new(img_size, img_size);
     let mut buffer = imgbuf.into_raw();
+    println!("Start");
     // Calculate for each pixel
     buffer
         .par_chunks_mut((img_size * 4) as usize)
@@ -65,6 +66,7 @@ fn main() {
             }
         });
     // Save image
+    println!("Done, saving png...");
     let img = image::RgbaImage::from_raw(img_size, img_size, buffer).unwrap();
     img.save("fractal.png").unwrap();
 }
