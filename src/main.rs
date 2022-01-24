@@ -19,8 +19,9 @@ fn mandel(x: f64, y: f64, iter: u64) -> u64 {
 }
 
 fn main() {
+    // Params
     let max_iterations = 1024u64;
-    let img_size = 512u32;
+    let img_size = 16384u32;
     let cxmin = -2f64;
     let cxmax = 1f64;
     let cymin = -1.5f64;
@@ -28,17 +29,12 @@ fn main() {
     let scalex = (cxmax - cxmin) / img_size as f64;
     let scaley = (cymax - cymin) / img_size as f64;
     let base = ((max_iterations - 1) as f64).log10();
-    // Create a new ImgBuf
-    // let mut imgbuf = image::ImageBuffer::new(img_size, img_size);
-    // Create buffer
-    // let buf_size = (img_size * img_size * 4) as usize;
+    // Create image buffer
     let imgbuf = image::RgbaImage::new(img_size, img_size);
-    // let mut buffer = vec![P::Subpixel; buf_size];
     let mut buffer = imgbuf.into_raw();
-    // let mut buffer: [u8; buf_size] = [0; buf_size];
     // Calculate for each pixel
     buffer
-        .chunks_mut((img_size * 4) as usize)
+        .par_chunks_mut((img_size * 4) as usize)
         .enumerate()
         .for_each(|(y, row)| {
             for x in 0..img_size {
