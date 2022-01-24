@@ -19,16 +19,16 @@ fn mandel(x: f32, y: f32, iter: u32) -> u32 {
 
 fn main() {
     let max_iterations = 1024u32;
-    let img_side = 512u32;
+    let img_size = 512u32;
     let cxmin = -2f32;
     let cxmax = 1f32;
     let cymin = -1.5f32;
     let cymax = 1.5f32;
-    let scalex = (cxmax - cxmin) / img_side as f32;
-    let scaley = (cymax - cymin) / img_side as f32;
+    let scalex = (cxmax - cxmin) / img_size as f32;
+    let scaley = (cymax - cymin) / img_size as f32;
     let base = ((max_iterations - 1) as f32).log10();
     // Create a new ImgBuf
-    let mut imgbuf = image::ImageBuffer::new(img_side, img_side);
+    let mut imgbuf = image::ImageBuffer::new(img_size, img_size);
     // Calculate for each pixel
     for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
         // Get iteration count

@@ -147,6 +147,7 @@ dependencies = [
  "ferris-says",
  "image",
  "num-complex",
+ "rayon",
 ]
 
 [[package]]
