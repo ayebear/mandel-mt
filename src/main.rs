@@ -9,12 +9,17 @@ use num_complex::Complex;
 use rayon::prelude::*;
 use simple_easing::{cubic_in_out, sine_out};
 
+const X_MIN: f64 = -2.;
+const X_MAX: f64 = 1.;
+const Y_MIN: f64 = -1.5;
+const Y_MAX: f64 = 1.5;
+
 fn mandel(x: f64, y: f64, iter: usize) -> usize {
     let c = Complex::new(x, y);
     let mut z = Complex::new(0f64, 0f64);
     let mut i = 0usize;
     for t in 0..iter {
-        if z.norm() > 2.0 {
+        if z.norm() > 2. {
             break;
         }
         z = z * z + c;
@@ -27,8 +32,6 @@ fn process_chunk((y, row): (usize, &mut [u8]), params: &Params) {
     let Params {
         img_size,
         max_iter,
-        cxmin,
-        cymin,
         scalex,
         scaley,
         base,
@@ -36,22 +39,20 @@ fn process_chunk((y, row): (usize, &mut [u8]), params: &Params) {
     } = *params;
     for x in 0..img_size {
         // Get iteration count
-        let cx = cxmin + x as f64 * scalex;
-        let cy = cymin + y as f64 * scaley;
+        let cx = X_MIN + x as f64 * scalex;
+        let cy = Y_MIN + y as f64 * scaley;
         let i = mandel(cx, cy, max_iter);
         let mut col = image::Rgba([0u8, 0u8, 0u8, 255u8]);
         // Convert iteration count to pixel color
         if i < max_iter - 1 {
             let c = (i as f64).log10() / base;
-            let (r, g, b) = HSL {
+            // TODO: Use easing library that supports f64
+            (col[0], col[1], col[2]) = HSL {
                 h: 360. * cubic_in_out(c as f32) as f64,
                 s: 0.8_f64,
                 l: 1_f64 * sine_out(c as f32) as f64,
             }
             .to_rgb();
-            col[0] = r;
-            col[1] = g;
-            col[2] = b;
         }
         row[(x * 4) as usize] = col[0];
         row[(x * 4 + 1) as usize] = col[1];
@@ -63,31 +64,19 @@ fn process_chunk((y, row): (usize, &mut [u8]), params: &Params) {
 struct Params {
     img_size: usize,
     max_iter: usize,
-    cxmin: f64,
-    cxmax: f64,
-    cymin: f64,
-    cymax: f64,
     scalex: f64,
     scaley: f64,
     base: f64,
 }
 
 fn build_params(img_size: usize, max_iter: usize) -> Params {
-    let mut p = Params {
+    Params {
         img_size,
         max_iter,
-        cxmin: -2f64,
-        cxmax: 1f64,
-        cymin: -1.5f64,
-        cymax: 1.5f64,
-        scalex: 0.,
-        scaley: 0.,
-        base: 0.,
-    };
-    p.scalex = (p.cxmax - p.cxmin) / p.img_size as f64;
-    p.scaley = (p.cymax - p.cymin) / p.img_size as f64;
-    p.base = ((p.max_iter - 1) as f64).log10();
-    p
+        scalex: (X_MAX - X_MIN) / img_size as f64,
+        scaley: (Y_MAX - Y_MIN) / img_size as f64,
+        base: ((max_iter - 1) as f64).log10(),
+    }
 }
 
 fn main() {
