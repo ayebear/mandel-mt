@@ -2,10 +2,12 @@ extern crate hsl;
 extern crate image;
 extern crate num_complex;
 extern crate rayon;
+extern crate simple_easing;
 
 use hsl::HSL;
 use num_complex::Complex;
 use rayon::prelude::*;
+use simple_easing::{cubic_in_out, sine_out};
 
 fn mandel(x: f64, y: f64, iter: u64) -> u64 {
     let c = Complex::new(x, y);
@@ -49,11 +51,11 @@ fn main() {
                 let mut col = image::Rgba([0u8, 0u8, 0u8, 255u8]);
                 // Convert iteration count to pixel color
                 if i < max_iterations - 1 {
-                    let c = (360.0 * (i as f64).log10()) / base;
+                    let c = (i as f64).log10() / base;
                     let (r, g, b) = HSL {
-                        h: c,
-                        s: 1_f64,
-                        l: 0.5_f64,
+                        h: 360.0 * cubic_in_out(c as f32) as f64,
+                        s: 0.8_f64,
+                        l: 1_f64 * sine_out(c as f32) as f64,
                     }
                     .to_rgb();
                     col[0] = r;
