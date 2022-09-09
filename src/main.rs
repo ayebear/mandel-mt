@@ -1,5 +1,6 @@
 extern crate image;
 extern crate num_complex;
+extern crate rayon;
 
 use num_complex::Complex;
 use rayon::prelude::*;
@@ -21,7 +22,7 @@ fn mandel(x: f64, y: f64, iter: u64) -> u64 {
 fn main() {
     // Params
     let max_iterations = 1024u64;
-    let img_size = 16384u32;
+    let img_size = 1024u32 * 16u32;
     let cxmin = -2f64;
     let cxmax = 1f64;
     let cymin = -1.5f64;
