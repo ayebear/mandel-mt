@@ -1,7 +1,9 @@
+extern crate hsl;
 extern crate image;
 extern crate num_complex;
 extern crate rayon;
 
+use hsl::HSL;
 use num_complex::Complex;
 use rayon::prelude::*;
 
@@ -21,8 +23,8 @@ fn mandel(x: f64, y: f64, iter: u64) -> u64 {
 
 fn main() {
     // Params
-    let max_iterations = 1024u64;
-    let img_size = 1024u32 * 16u32;
+    let max_iterations = 1024u64 * 4;
+    let img_size = 1024u32 * 4;
     let cxmin = -2f64;
     let cxmax = 1f64;
     let cymin = -1.5f64;
@@ -47,17 +49,16 @@ fn main() {
                 let mut col = image::Rgba([0u8, 0u8, 0u8, 255u8]);
                 // Convert iteration count to pixel color
                 if i < max_iterations - 1 {
-                    let c = (3.0 * (i as f64).log10()) / base;
-                    if c < 1.0 {
-                        col[2] = (255.0 * c) as u8;
-                    } else if c < 2.0 {
-                        col[1] = (255.0 * (c - 1.0)) as u8;
-                        col[2] = 255u8;
-                    } else {
-                        col[0] = 255u8;
-                        col[1] = (255.0 * (c - 2.0)) as u8;
-                        col[2] = 255u8;
+                    let c = (360.0 * (i as f64).log10()) / base;
+                    let (r, g, b) = HSL {
+                        h: c,
+                        s: 1_f64,
+                        l: 0.5_f64,
                     }
+                    .to_rgb();
+                    col[0] = r;
+                    col[1] = g;
+                    col[2] = b;
                 }
                 // imgbuf.put_pixel(x, y, col);
                 row[(x * 4) as usize] = col[0];
