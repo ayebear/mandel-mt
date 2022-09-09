@@ -141,16 +141,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hello-rust"
-version = "0.1.0"
-dependencies = [
- "ferris-says",
- "image",
- "num-complex",
- "rayon",
-]
-
-[[package]]
 name = "hermit-abi"
 version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -198,6 +188,16 @@ name = "libc"
 version = "0.2.113"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eef78b64d87775463c549fbd80e19249ef436ea3bf1de2a1eb7e717ec7fab1e9"
+
+[[package]]
+name = "mandel-mt"
+version = "0.1.0"
+dependencies = [
+ "ferris-says",
+ "image",
+ "num-complex",
+ "rayon",
+]
 
 [[package]]
 name = "memoffset"
