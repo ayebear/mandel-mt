@@ -20,6 +20,7 @@ const DEF_IMG_SIZE: usize = 1024 * 2;
 const DEF_MAX_ITERS: usize = 1024 * 4;
 const DEF_FILENAME: &str = "fractal.png";
 const DEF_HUE_SHIFT: f64 = 0.5;
+const DEF_POWER: f64 = 2.;
 
 /// Multi-threaded mandelbrot fractal generator in rust
 #[derive(Parser, Debug)]
@@ -40,12 +41,16 @@ struct Args {
     /// Amount to shift hue (between 0-1)
     #[clap(short, long, value_parser, default_value_t = DEF_HUE_SHIFT)]
     hue: f64,
+
+    /// Power to use in fractal generation formula
+    #[clap(short, long, value_parser, default_value_t = DEF_POWER)]
+    power: f64,
 }
 
 fn main() {
     // Parse params
     let args = Args::parse();
-    let params = build_params(args.size, args.iter, args.out, args.hue);
+    let params = build_params(args.size, args.iter, args.out, args.hue, args.power);
     // Create image buffer
     println!("Start");
     let size = params.img_size as u32;
@@ -70,9 +75,16 @@ struct Params {
     scaley: f64,
     base: f64,
     hue_shift: f64,
+    power: f64,
 }
 
-fn build_params(img_size: usize, max_iter: usize, filename: String, hue_shift: f64) -> Params {
+fn build_params(
+    img_size: usize,
+    max_iter: usize,
+    filename: String,
+    hue_shift: f64,
+    power: f64,
+) -> Params {
     Params {
         img_size,
         max_iter,
@@ -81,10 +93,11 @@ fn build_params(img_size: usize, max_iter: usize, filename: String, hue_shift: f
         scaley: (Y_MAX - Y_MIN) / img_size as f64,
         base: ((max_iter - 1) as f64).log10(),
         hue_shift,
+        power,
     }
 }
 
-fn mandel(x: f64, y: f64, iter: usize) -> usize {
+fn mandel(x: f64, y: f64, iter: usize, power: f64) -> usize {
     let c = Complex::new(x, y);
     let mut z = Complex::new(0f64, 0f64);
     let mut i = 0usize;
@@ -92,7 +105,7 @@ fn mandel(x: f64, y: f64, iter: usize) -> usize {
         if z.norm() > 2. {
             break;
         }
-        z = z * z + c;
+        z = z.powf(power) + c;
         i = t;
     }
     return i;
@@ -106,13 +119,14 @@ fn process_chunk((y, row): (usize, &mut [u8]), params: &Params) {
         scaley,
         base,
         hue_shift,
+        power,
         ..
     } = *params;
     for x in 0..img_size {
         // Get iteration count
         let cx = X_MIN + x as f64 * scalex;
         let cy = Y_MIN + y as f64 * scaley;
-        let i = mandel(cx, cy, max_iter);
+        let i = mandel(cx, cy, max_iter, power);
         let mut col = image::Rgba([0u8, 0u8, 0u8, 255u8]);
         // Convert iteration count to pixel color
         if i < max_iter - 1 {
