@@ -15,6 +15,7 @@ const X_MIN: f64 = -2.;
 const X_MAX: f64 = 1.;
 const Y_MIN: f64 = -1.5;
 const Y_MAX: f64 = 1.5;
+const SATURATION: f64 = 0.8;
 const DEF_IMG_SIZE: usize = 1024 * 2;
 const DEF_MAX_ITERS: usize = 1024 * 4;
 const DEF_FILENAME: &str = "fractal.png";
@@ -120,8 +121,8 @@ fn process_chunk((y, row): (usize, &mut [u8]), params: &Params) {
             let e = cubic_in_out(c as f32) as f64;
             (col[0], col[1], col[2]) = HSL {
                 h: (360. * (e + hue_shift)) % 360.,
-                s: 0.8_f64,
-                l: 1_f64 * sine_out(c as f32) as f64,
+                s: SATURATION,
+                l: sine_out(c as f32) as f64,
             }
             .to_rgb();
         }
