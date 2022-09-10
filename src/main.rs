@@ -1,9 +1,11 @@
+extern crate clap;
 extern crate hsl;
 extern crate image;
 extern crate num_complex;
 extern crate rayon;
 extern crate simple_easing;
 
+use clap::Parser;
 use hsl::HSL;
 use num_complex::Complex;
 use rayon::prelude::*;
@@ -13,6 +15,73 @@ const X_MIN: f64 = -2.;
 const X_MAX: f64 = 1.;
 const Y_MIN: f64 = -1.5;
 const Y_MAX: f64 = 1.5;
+const DEF_IMG_SIZE: usize = 1024 * 2;
+const DEF_MAX_ITERS: usize = 1024 * 4;
+const DEF_FILENAME: &str = "fractal.png";
+const DEF_HUE_SHIFT: f64 = 0.5;
+
+/// Multi-threaded mandelbrot fractal generator in rust
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    /// Size of the image in pixels, used for both width and height
+    #[clap(short, long, value_parser, default_value_t = DEF_IMG_SIZE)]
+    size: usize,
+
+    /// Maximum number of iterations
+    #[clap(short, long, value_parser, default_value_t = DEF_MAX_ITERS)]
+    iter: usize,
+
+    /// Output filename for image
+    #[clap(short, long, value_parser, default_value_t = DEF_FILENAME.to_string())]
+    out: String,
+
+    /// Amount to shift hue (between 0-1)
+    #[clap(short, long, value_parser, default_value_t = DEF_HUE_SHIFT)]
+    hue: f64,
+}
+
+fn main() {
+    // Parse params
+    let args = Args::parse();
+    let params = build_params(args.size, args.iter, args.out, args.hue);
+    // Create image buffer
+    println!("Start");
+    let size = params.img_size as u32;
+    let imgbuf = image::RgbaImage::new(size, size);
+    let mut buffer = imgbuf.into_raw();
+    // Calculate for each pixel
+    buffer
+        .par_chunks_mut(params.img_size * 4)
+        .enumerate()
+        .for_each(|t| process_chunk(t, &params));
+    // Save image
+    println!("Writing {}", params.filename);
+    let img = image::RgbaImage::from_raw(size, size, buffer).unwrap();
+    img.save(params.filename).unwrap();
+}
+
+struct Params {
+    img_size: usize,
+    max_iter: usize,
+    filename: String,
+    scalex: f64,
+    scaley: f64,
+    base: f64,
+    hue_shift: f64,
+}
+
+fn build_params(img_size: usize, max_iter: usize, filename: String, hue_shift: f64) -> Params {
+    Params {
+        img_size,
+        max_iter,
+        filename,
+        scalex: (X_MAX - X_MIN) / img_size as f64,
+        scaley: (Y_MAX - Y_MIN) / img_size as f64,
+        base: ((max_iter - 1) as f64).log10(),
+        hue_shift,
+    }
+}
 
 fn mandel(x: f64, y: f64, iter: usize) -> usize {
     let c = Complex::new(x, y);
@@ -35,6 +104,7 @@ fn process_chunk((y, row): (usize, &mut [u8]), params: &Params) {
         scalex,
         scaley,
         base,
+        hue_shift,
         ..
     } = *params;
     for x in 0..img_size {
@@ -47,8 +117,9 @@ fn process_chunk((y, row): (usize, &mut [u8]), params: &Params) {
         if i < max_iter - 1 {
             let c = (i as f64).log10() / base;
             // TODO: Use easing library that supports f64
+            let e = cubic_in_out(c as f32) as f64;
             (col[0], col[1], col[2]) = HSL {
-                h: 360. * cubic_in_out(c as f32) as f64,
+                h: (360. * (e + hue_shift)) % 360.,
                 s: 0.8_f64,
                 l: 1_f64 * sine_out(c as f32) as f64,
             }
@@ -59,41 +130,4 @@ fn process_chunk((y, row): (usize, &mut [u8]), params: &Params) {
         row[(x * 4 + 2) as usize] = col[2];
         row[(x * 4 + 3) as usize] = col[3];
     }
-}
-
-struct Params {
-    img_size: usize,
-    max_iter: usize,
-    scalex: f64,
-    scaley: f64,
-    base: f64,
-}
-
-fn build_params(img_size: usize, max_iter: usize) -> Params {
-    Params {
-        img_size,
-        max_iter,
-        scalex: (X_MAX - X_MIN) / img_size as f64,
-        scaley: (Y_MAX - Y_MIN) / img_size as f64,
-        base: ((max_iter - 1) as f64).log10(),
-    }
-}
-
-fn main() {
-    // Params
-    let params = build_params(1024 * 4, 1024 * 4);
-    // Create image buffer
-    let size = params.img_size as u32;
-    let imgbuf = image::RgbaImage::new(size, size);
-    let mut buffer = imgbuf.into_raw();
-    println!("Start");
-    // Calculate for each pixel
-    buffer
-        .par_chunks_mut(params.img_size * 4)
-        .enumerate()
-        .for_each(|t| process_chunk(t, &params));
-    // Save image
-    println!("Done, saving png...");
-    let img = image::RgbaImage::from_raw(size, size, buffer).unwrap();
-    img.save("fractal.png").unwrap();
 }
