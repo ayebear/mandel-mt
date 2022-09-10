@@ -28,6 +28,12 @@ OPTIONS:
     -V, --version        Print version information
 ```
 
+An example of a command with many params set:
+
+```
+cargo run -r -- -s 4096 -i 10000 -h 0.65 -o my_fractal.png
+```
+
 ## Output
 
 When run with default settings:
