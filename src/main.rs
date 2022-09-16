@@ -1,10 +1,3 @@
-extern crate clap;
-extern crate hsl;
-extern crate image;
-extern crate num_complex;
-extern crate rayon;
-extern crate simple_easing;
-
 use clap::Parser;
 use hsl::HSL;
 use num_complex::Complex;
