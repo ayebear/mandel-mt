@@ -48,7 +48,7 @@ struct Args {
     #[clap(short, long, value_parser, default_value_t = DEF_POWER)]
     power: f64,
 
-    /// Enable multi-threading. Useful to disable to avoid oversubscribing threads with a parallel runner.
+    /// Multi-threading is enabled by default. Can disable by passing false. Useful to disable to avoid oversubscribing threads with a parallel runner.
     #[clap(long, value_parser, default_value_t = true)]
     mt: bool,
 
@@ -112,18 +112,16 @@ fn build_params(args: &Args) -> Params {
     }
 }
 
-fn mandel(x: f64, y: f64, iter: usize, power: f64) -> usize {
+fn mandel(x: f64, y: f64, iter: usize, power: f64) -> Option<usize> {
     let c = Complex::new(x, y);
     let mut z = Complex::new(0f64, 0f64);
-    let mut i = 0usize;
-    for t in 0..iter {
+    for i in 0..iter {
         if z.norm() > 2. {
-            break;
+            return Some(i);
         }
         z = z.powf(power) + c;
-        i = t;
     }
-    return i;
+    None
 }
 
 fn process_chunk((y, row): (usize, &mut [u8]), args: &Args, params: &Params) {
@@ -146,25 +144,29 @@ fn process_chunk((y, row): (usize, &mut [u8]), args: &Args, params: &Params) {
         // Get iteration count
         let cx = left + x as f64 * scalex;
         let cy = top + y as f64 * scaley;
-        let i = mandel(cx, cy, iter, power);
-        let mut col = image::Rgba([0u8, 0u8, 0u8, 255u8]);
+        let result = mandel(cx, cy, iter, power);
         // Convert iteration count to pixel color
-        if i < iter - 1 {
-            let c = (i as f64).log10() / base;
-            // TODO: Use easing library that supports f64
-            // TODO: Use logarithmic curve instead of cubic
-            // TODO: Use smoothstep algo to get smoother colors
-            let e = cubic_in_out(c as f32) as f64;
-            (col[0], col[1], col[2]) = HSL {
-                h: (360. * (e + hue)) % 360.,
-                s: saturation,
-                l: sine_out(c as f32) as f64,
+        let col = match result {
+            Some(i) => {
+                let c = ((i + 1) as f64).log10() / base;
+                // TODO: Use easing library that supports f64
+                // TODO: Use logarithmic curve instead of cubic
+                // TODO: Use smoothstep algo to get smoother colors
+                let e = cubic_in_out(c as f32) as f64;
+                HSL {
+                    h: (360. * (e + hue)) % 360.,
+                    s: saturation,
+                    l: sine_out(c as f32) as f64,
+                }
+                .to_rgb()
             }
-            .to_rgb();
-        }
-        row[(x * 4) as usize] = col[0];
-        row[(x * 4 + 1) as usize] = col[1];
-        row[(x * 4 + 2) as usize] = col[2];
-        row[(x * 4 + 3) as usize] = col[3];
+            // TODO: Fill inner colors with something other than black
+            None => (0, 0, 0),
+        };
+        // Store color in image buffer
+        row[(x * 4) as usize] = col.0;
+        row[(x * 4 + 1) as usize] = col.1;
+        row[(x * 4 + 2) as usize] = col.2;
+        row[(x * 4 + 3) as usize] = 255u8;
     }
 }
