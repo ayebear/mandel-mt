@@ -18,7 +18,7 @@ const DEF_POWER: f64 = 2.;
 
 /// Multi-threaded mandelbrot fractal generator in rust
 #[derive(Parser, Debug)]
-#[clap(author, version, about, long_about = None)]
+#[clap(author, version, about, long_about = None, allow_hyphen_values = true)]
 struct Args {
     /// Width of the image in pixels
     #[clap(short, long, value_parser, default_value_t = DEF_WIDTH)]
