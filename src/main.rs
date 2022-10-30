@@ -4,12 +4,13 @@ use num_complex::Complex;
 use rayon::prelude::*;
 use simple_easing::{cubic_in_out, sine_out};
 
-const X_MIN: f64 = -2.;
-const X_MAX: f64 = 1.;
-const Y_MIN: f64 = -1.5;
-const Y_MAX: f64 = 1.5;
-const SATURATION: f64 = 0.8;
-const DEF_IMG_SIZE: usize = 1024 * 2;
+const DEF_LEFT: f64 = -2.9;
+const DEF_RIGHT: f64 = 1.9;
+const DEF_TOP: f64 = -1.35;
+const DEF_BOTTOM: f64 = 1.35;
+const DEF_SATURATION: f64 = 0.8;
+const DEF_WIDTH: usize = 1920;
+const DEF_HEIGHT: usize = 1080;
 const DEF_MAX_ITERS: usize = 1024 * 4;
 const DEF_FILENAME: &str = "fractal.png";
 const DEF_HUE_SHIFT: f64 = 0.5;
@@ -19,9 +20,13 @@ const DEF_POWER: f64 = 2.;
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
-    /// Size of the image in pixels, used for both width and height
-    #[clap(short, long, value_parser, default_value_t = DEF_IMG_SIZE)]
-    size: usize,
+    /// Width of the image in pixels
+    #[clap(short, long, value_parser, default_value_t = DEF_WIDTH)]
+    width: usize,
+
+    /// Height of the image in pixels
+    #[clap(short, long, value_parser, default_value_t = DEF_HEIGHT)]
+    height: usize,
 
     /// Maximum number of iterations
     #[clap(short, long, value_parser, default_value_t = DEF_MAX_ITERS)]
@@ -32,61 +37,78 @@ struct Args {
     out: String,
 
     /// Amount to shift hue (between 0-1)
-    #[clap(short, long, value_parser, default_value_t = DEF_HUE_SHIFT)]
+    #[clap(long, value_parser, default_value_t = DEF_HUE_SHIFT)]
     hue: f64,
+
+    /// Color saturation amount (between 0-1)
+    #[clap(short, long, value_parser, default_value_t = DEF_SATURATION)]
+    saturation: f64,
 
     /// Power to use in fractal generation formula
     #[clap(short, long, value_parser, default_value_t = DEF_POWER)]
     power: f64,
+
+    /// Enable multi-threading. Useful to disable to avoid oversubscribing threads with a parallel runner.
+    #[clap(long, value_parser, default_value_t = true)]
+    mt: bool,
+
+    /// Left coordinate of fractal space (min x)
+    #[clap(short, long, value_parser, default_value_t = DEF_LEFT)]
+    left: f64,
+
+    /// Right coordinate of fractal space (max x)
+    #[clap(short, long, value_parser, default_value_t = DEF_RIGHT)]
+    right: f64,
+
+    /// Top coordinate of fractal space (min y)
+    #[clap(short, long, value_parser, default_value_t = DEF_TOP)]
+    top: f64,
+
+    /// Bottom coordinate of fractal space (max y)
+    #[clap(short, long, value_parser, default_value_t = DEF_BOTTOM)]
+    bottom: f64,
 }
 
 fn main() {
     // Parse params
     let args = Args::parse();
-    let params = build_params(args.size, args.iter, args.out, args.hue, args.power);
+    let params = build_params(&args);
     // Create image buffer
-    println!("Start");
-    let size = params.img_size as u32;
-    let imgbuf = image::RgbaImage::new(size, size);
+    let w = args.width as u32;
+    let h = args.height as u32;
+    let imgbuf = image::RgbaImage::new(w, h);
     let mut buffer = imgbuf.into_raw();
-    // Calculate for each pixel
-    buffer
-        .par_chunks_mut(params.img_size * 4)
-        .enumerate()
-        .for_each(|t| process_chunk(t, &params));
+    // Calculate for each row, multi-threaded or single-threaded based on args
+    let chunk_size = args.width * 4;
+    let processor = |t| process_chunk(t, &args, &params);
+    if args.mt {
+        buffer
+            .par_chunks_mut(chunk_size)
+            .enumerate()
+            .for_each(processor);
+    } else {
+        buffer
+            .chunks_mut(chunk_size)
+            .enumerate()
+            .for_each(processor);
+    }
     // Save image
-    println!("Writing {}", params.filename);
-    let img = image::RgbaImage::from_raw(size, size, buffer).unwrap();
-    img.save(params.filename).unwrap();
+    println!("Writing {}", args.out);
+    let img = image::RgbaImage::from_raw(w, h, buffer).unwrap();
+    img.save(args.out).unwrap();
 }
 
 struct Params {
-    img_size: usize,
-    max_iter: usize,
-    filename: String,
     scalex: f64,
     scaley: f64,
     base: f64,
-    hue_shift: f64,
-    power: f64,
 }
 
-fn build_params(
-    img_size: usize,
-    max_iter: usize,
-    filename: String,
-    hue_shift: f64,
-    power: f64,
-) -> Params {
+fn build_params(args: &Args) -> Params {
     Params {
-        img_size,
-        max_iter,
-        filename,
-        scalex: (X_MAX - X_MIN) / img_size as f64,
-        scaley: (Y_MAX - Y_MIN) / img_size as f64,
-        base: ((max_iter - 1) as f64).log10(),
-        hue_shift,
-        power,
+        scalex: (args.right - args.left) / args.width as f64,
+        scaley: (args.bottom - args.top) / args.height as f64,
+        base: ((args.iter - 1) as f64).log10(),
     }
 }
 
@@ -104,31 +126,38 @@ fn mandel(x: f64, y: f64, iter: usize, power: f64) -> usize {
     return i;
 }
 
-fn process_chunk((y, row): (usize, &mut [u8]), params: &Params) {
+fn process_chunk((y, row): (usize, &mut [u8]), args: &Args, params: &Params) {
     let Params {
-        img_size,
-        max_iter,
         scalex,
         scaley,
         base,
-        hue_shift,
+    } = *params;
+    let Args {
+        width,
+        iter,
+        left,
+        top,
+        hue,
+        saturation,
         power,
         ..
-    } = *params;
-    for x in 0..img_size {
+    } = *args;
+    for x in 0..width {
         // Get iteration count
-        let cx = X_MIN + x as f64 * scalex;
-        let cy = Y_MIN + y as f64 * scaley;
-        let i = mandel(cx, cy, max_iter, power);
+        let cx = left + x as f64 * scalex;
+        let cy = top + y as f64 * scaley;
+        let i = mandel(cx, cy, iter, power);
         let mut col = image::Rgba([0u8, 0u8, 0u8, 255u8]);
         // Convert iteration count to pixel color
-        if i < max_iter - 1 {
+        if i < iter - 1 {
             let c = (i as f64).log10() / base;
             // TODO: Use easing library that supports f64
+            // TODO: Use logarithmic curve instead of cubic
+            // TODO: Use smoothstep algo to get smoother colors
             let e = cubic_in_out(c as f32) as f64;
             (col[0], col[1], col[2]) = HSL {
-                h: (360. * (e + hue_shift)) % 360.,
-                s: SATURATION,
+                h: (360. * (e + hue)) % 360.,
+                s: saturation,
                 l: sine_out(c as f32) as f64,
             }
             .to_rgb();
