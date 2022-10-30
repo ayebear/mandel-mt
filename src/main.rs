@@ -108,7 +108,7 @@ fn build_params(args: &Args) -> Params {
     Params {
         scalex: (args.right - args.left) / args.width as f64,
         scaley: (args.bottom - args.top) / args.height as f64,
-        base: ((args.iter - 1) as f64).log10(),
+        base: (args.iter as f64).log10(),
     }
 }
 
