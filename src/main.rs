@@ -48,9 +48,9 @@ struct Args {
     #[clap(short, long, value_parser, default_value_t = DEF_POWER)]
     power: f64,
 
-    /// Multi-threading is enabled by default. Can disable by passing false. Useful to disable to avoid oversubscribing threads with a parallel runner.
-    #[clap(long, value_parser, default_value_t = true)]
-    mt: bool,
+    /// Multi-threading is enabled by default. Can disable by passing this flag. Useful to disable to avoid oversubscribing threads with a parallel runner.
+    #[clap(long, value_parser, default_value_t = false)]
+    st: bool,
 
     /// Left coordinate of fractal space (min x)
     #[clap(short, long, value_parser, default_value_t = DEF_LEFT)]
@@ -81,14 +81,14 @@ fn main() {
     // Calculate for each row, multi-threaded or single-threaded based on args
     let chunk_size = args.width * 4;
     let processor = |t| process_chunk(t, &args, &params);
-    if args.mt {
+    if args.st {
         buffer
-            .par_chunks_mut(chunk_size)
+            .chunks_mut(chunk_size)
             .enumerate()
             .for_each(processor);
     } else {
         buffer
-            .chunks_mut(chunk_size)
+            .par_chunks_mut(chunk_size)
             .enumerate()
             .for_each(processor);
     }
@@ -150,7 +150,6 @@ fn process_chunk((y, row): (usize, &mut [u8]), args: &Args, params: &Params) {
             Some(i) => {
                 let c = ((i + 1) as f64).log10() / base;
                 // TODO: Use easing library that supports f64
-                // TODO: Use logarithmic curve instead of cubic
                 // TODO: Use smoothstep algo to get smoother colors
                 let e = cubic_in_out(c as f32) as f64;
                 HSL {
